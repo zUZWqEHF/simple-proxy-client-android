@@ -1,0 +1,51 @@
+# Android / Gradle
+.gradle/
+build/
+**/build/
+local.properties
+captures/
+*.apk
+app/release/
+
+# Native libs (downloaded by build script, too large for git)
+app/src/main/jniLibs/
+
+# sing-box binaries (downloaded at build time)
+app/src/main/assets/singbox/
+
+# IDE
+.idea/
+*.iml
+
+# Logs / temp
+*.log
+clientlog
+clientlog.txt
+serverlog.txt
+
+# macOS
+.DS_Store
+
+# Keep server as separate repository
+server/
+sing-box-for-android/
+
+# iOS client (separate repository)
+simple-proxy-client-ios/
+
+# Legacy name (in case old folder reappears)
+simpleserver/
+
+# iOS legacy (project migrated to Android)
+SimpleProxyClient/
+SimpleProxyClient.xcodeproj/
+SimpleProxyClientTests/
+SimpleProxyClientUITests/
+
+# Environment files
+.env
+
+# Play Store assets (local only)
+app_icon_512.png
+feature_graphic_1024x500.png
+screenshots/server/dist/
