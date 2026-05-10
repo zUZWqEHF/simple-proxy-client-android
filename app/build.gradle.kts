@@ -269,7 +269,7 @@ android {
         applicationId = "com.simple.proxyconnect"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
+        versionCode = 11
         versionName = "1.2.4"
 
         val requestedAbis = parseRequestedAbis(singBoxTargetAbisProvider.get())
