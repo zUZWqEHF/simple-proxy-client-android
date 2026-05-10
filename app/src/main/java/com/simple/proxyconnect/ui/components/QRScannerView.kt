@@ -113,7 +113,6 @@ private fun CameraQRScanner(
                     .build()
                     .also { analysis ->
                         analysis.setAnalyzer(cameraExecutor) { imageProxy ->
-                            @androidx.camera.core.ExperimentalGetImage
                             val mediaImage = imageProxy.image
                             if (mediaImage != null && !hasScanned) {
                                 val image = InputImage.fromMediaImage(

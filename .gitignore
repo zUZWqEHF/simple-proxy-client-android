@@ -45,6 +45,18 @@ SimpleProxyClientUITests/
 # Environment files
 .env
 
+# Release signing — never commit keystores or local signing config
+*.jks
+*.keystore
+keystore.properties
+app/signing.gradle
+app/signing.gradle.kts
+
+# Claude Code / agent loop local state (never commit)
+.claude/
+GOAL.md
+LOOP_PROGRESS.md
+
 # Play Store assets (local only)
 app_icon_512.png
 feature_graphic_1024x500.png

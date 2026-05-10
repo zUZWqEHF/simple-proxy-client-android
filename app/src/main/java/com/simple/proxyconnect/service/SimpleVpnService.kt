@@ -67,7 +67,7 @@ class SimpleVpnService : VpnService() {
         private const val DEFAULT_PEER_MSS = 1200
         private const val MAX_ACTIVE_SESSIONS = 1024
         private const val PROXY_WORKER_THREADS = 64
-        private const val BUILD_ID = "1.2.2-b17"
+        private const val BUILD_ID = "1.2.4-b19-pgsz16k"
 
         const val ACTION_START = "com.simple.proxyconnect.START"
         const val ACTION_STOP = "com.simple.proxyconnect.STOP"

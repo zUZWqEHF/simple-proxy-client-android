@@ -21,11 +21,15 @@ class SingBoxRuntime(private val context: Context) {
     private val started = AtomicBoolean(false)
 
     private fun logCoreLine(line: String) {
+        if (line.isBlank()) return
         val normalized = line.uppercase()
         when {
             normalized.contains("FATAL") || normalized.contains("ERROR") -> Log.e(TAG, "[core] $line")
             normalized.contains("WARN") -> Log.w(TAG, "[core] $line")
-            normalized.contains("SING-BOX STARTED") -> Log.i(TAG, "[core] $line")
+            normalized.contains("SING-BOX STARTED") || normalized.contains("LISTENING AT") ->
+                Log.i(TAG, "[core] $line")
+            // INFO/DEBUG ignored — sing-box is verbose and the
+            // SOCKS-listener-bound timing is tracked separately.
         }
     }
 
@@ -50,18 +54,31 @@ class SingBoxRuntime(private val context: Context) {
         return null
     }
 
-    private fun waitForSocksReady(process: Process, timeoutMs: Long = 5_000): Boolean {
-        val deadline = System.currentTimeMillis() + timeoutMs
+    // sing-box startup on cold-cache emulators (after SELinux denials, /cgroup
+    // probes etc.) easily exceeds the original 5 s deadline; bump to 20 s.
+    // The check polls every 120 ms so the happy path still resolves in well
+    // under a second once the SOCKS listener binds.
+    private fun waitForSocksReady(process: Process, timeoutMs: Long = 20_000): Boolean {
+        val start = System.currentTimeMillis()
+        val deadline = start + timeoutMs
+        var nextLog = start + 1_000
         while (System.currentTimeMillis() < deadline) {
             if (!process.isAlive) {
+                Log.e(TAG, "sing-box exited before SOCKS ready")
                 return false
             }
             try {
                 Socket().use { socket ->
                     socket.connect(InetSocketAddress("127.0.0.1", LOCAL_SOCKS_PORT), 300)
                 }
+                Log.i(TAG, "SOCKS listener bound after ${System.currentTimeMillis() - start} ms")
                 return true
             } catch (_: Exception) {
+            }
+            val now = System.currentTimeMillis()
+            if (now >= nextLog) {
+                Log.i(TAG, "waiting for sing-box SOCKS listener… elapsed=${now - start} ms")
+                nextLog = now + 2_000
             }
             try {
                 Thread.sleep(120)
@@ -97,28 +114,48 @@ class SingBoxRuntime(private val context: Context) {
                 .redirectErrorStream(true)
             builder.environment()["ENABLE_DEPRECATED_SPECIAL_OUTBOUNDS"] = "true"
 
-            val startedProcess = builder.start()
-            process = startedProcess
+            // The first ProcessBuilder fork on a freshly-installed APK can
+            // hit a kernel/SELinux state where sing-box's mixed listener
+            // never binds within the readiness window. Killing that
+            // subprocess and retrying always recovers within a second on
+            // the second attempt, so we wrap the spawn in a small retry
+            // loop instead of giving up immediately.
+            val maxAttempts = 3
+            var ready = false
+            var lastProcess: Process? = null
+            for (attempt in 1..maxAttempts) {
+                val attemptProcess = builder.start()
+                lastProcess = attemptProcess
+                process = attemptProcess
 
-            logThread = Thread {
-                runCatching {
-                    startedProcess.inputStream.bufferedReader().useLines { lines ->
-                        lines.forEach { line ->
-                            logCoreLine(line)
+                logThread = Thread {
+                    runCatching {
+                        attemptProcess.inputStream.bufferedReader().useLines { lines ->
+                            lines.forEach { line ->
+                                logCoreLine(line)
+                            }
                         }
                     }
+                }.apply {
+                    name = "singbox-log-$attempt"
+                    isDaemon = true
+                    start()
                 }
-            }.apply {
-                name = "singbox-log"
-                isDaemon = true
-                start()
+
+                Log.i(TAG, "sing-box process started (attempt $attempt/$maxAttempts)")
+                ready = waitForSocksReady(attemptProcess, timeoutMs = 8_000)
+                if (ready) break
+
+                Log.w(TAG, "sing-box not ready after attempt $attempt; killing and retrying")
+                runCatching { attemptProcess.destroy() }
+                runCatching { attemptProcess.destroyForcibly() }
+                runCatching { logThread?.interrupt() }
+                logThread = null
+                Thread.sleep(500)
             }
 
-            Log.i(TAG, "sing-box process started")
-
-            val ready = waitForSocksReady(startedProcess)
             if (!ready) {
-                Log.e(TAG, "sing-box failed to become ready on 127.0.0.1:$LOCAL_SOCKS_PORT")
+                Log.e(TAG, "sing-box failed to become ready on 127.0.0.1:$LOCAL_SOCKS_PORT after $maxAttempts attempts")
                 stop()
                 return false
             }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!--
+      Project-wide opt-in for the CameraX ExperimentalGetImage API.
+      Used in QRScannerView's analyzer lambda; the @OptIn annotation
+      cannot propagate into the nested ImageAnalysis.Analyzer scope,
+      so we declare the opt-in at the module level instead (per the
+      `UnsafeOptInUsageError` lint help text).
+    -->
+    <issue id="UnsafeOptInUsageError">
+        <option name="opt-in" value="androidx.camera.core.ExperimentalGetImage" />
+    </issue>
+</lint>
